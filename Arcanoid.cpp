@@ -8,9 +8,26 @@
 #include <cstdlib> // Для rand()
 #include <ctime>   // Для time()
 
+#include <irrKlang.h>
+#pragma comment(lib, "irrKlang.lib") // Äëÿ Visual Studio
+using namespace irrklang;
+
 // Використовувати using namespace std; у заголовних файлах або великих проектах не рекомендується,
 // але для невеликих прикладів це прийнятно.
 using namespace std;
+
+// Змінні для відігравання звуків у грі
+    
+
+
+    
+/*
+ISound* SoundFeil = engine->play2D("music//feil.wav", false, true, true);
+ISound* SoundEnter = engine->play2D("Enter.wav", false, true, true);
+ISound* SoundCountingScore = engine->play2D("Enter.wav", false, true, true);
+ISound* SoundDriving = engine->play2D("Driving.wav", false, true, true);
+ISound* engine->play2D("music//punct.wav", false, false, true);// зациклений, але ПАУЗА (true, true)
+*/
 
 // Структура для передачі аргументів, її можна буде розширити
 struct MoveArgs {
@@ -30,8 +47,10 @@ class Ball {
 public:
     Ball(char c) : ballSymbol(c), x(0), y(0) {}
     Ball() : ballSymbol('*'), x(0), y(0) {}
-    Ball(char c, int X, int Y)
+    Ball(char c, int X, int Y, ISoundEngine* engine1)
     {
+        this->engine = engine1;
+
         ballSymbol = c;
         this->x = X;
         this->y = Y;
@@ -41,6 +60,7 @@ public:
 
     int x;
     int y;
+    ISoundEngine* engine;
 
     enum BallTo {
         ballToUp = 0,
@@ -56,9 +76,19 @@ public:
 class ReLoadImage {
 public:
     // Конструктор
-    ReLoadImage(MoveArgs& direct, Ball* ball) {
+    ReLoadImage(MoveArgs& direct, Ball* ball, ISoundEngine* engine1) {
         this->HEIGHT = direct.fieldY2 - direct.fieldY1;
         this->WIDTH = direct.fieldX2 - direct.fieldX1;
+
+        // Початкова статистика
+        this->timeRecord = 0;
+        this->obstaclesRecord = 0;
+        this->lifes = 3;
+        this->allTimeInGame = 0;
+        this->obstaclesWastedInLastRound = 0;
+        this->lvl = 0;
+
+        this->engine = engine1;
 
         // Ініціалізуємо карту один раз у конструкторі
         map.assign(HEIGHT, vector<char>(WIDTH, ' '));
@@ -81,14 +111,14 @@ public:
         circle = ball;
 
         // Заповнення масиву з перешкодами
-
-        int numRows = 20;
-        int obstaclesPerRow = 3;
+        
+        int numRows = 2; // Кількість перешкод у ряді
+        int obstaclesPerRow = 7; // Кількість рядів перешкод
         char obstacleChar = '#';
-        int startY = 4;
-        int startX = 2;
-        int xSpacing = 2;
-        int ySpacing = 1;
+        int startY = 2; // Зміщення рядів вправо
+        int startX = 4; // Зміщення рядів вниз
+        int xSpacing = 3; // Відстань між рядами перешкод
+        int ySpacing = 1; // відстань між перешкодами в ряді
 
         for (int i = 0; i < numRows; ++i) {
             std::vector<std::pair<char, std::pair<int, int>>> currentRow;
@@ -136,6 +166,15 @@ public:
 
 
     // Змінні класу
+    int lifes;
+    int obstaclesRecord;
+    int timeRecord;
+    int allTimeInGame;
+    int obstaclesWastedInLastRound;
+    int lvl;
+
+    ISoundEngine* engine;
+
     int HEIGHT;
     int WIDTH;
     char baseChar; // Символ, яким відмальовується платформа
@@ -186,7 +225,7 @@ public:
         // Відрисовка перешкод
         for (int i = 0; i < obstacles.size(); i++) {
             for (int j = 0; j < obstacles[i].size(); j++) {
-                map[obstacles[i][j].second.first][obstacles[i][j].second.second] = obstacles[i][j].first;
+                map[obstacles[i][j].second.second][obstacles[i][j].second.first] = obstacles[i][j].first;
             }
         }
     }
@@ -226,6 +265,7 @@ public:
 
         // Колізія з верхньою стіною (Y=0 або Y=1, залежно від того, як малюється межа)
         if (nextY <= 0) { // М'яч намагається зайти за верхню межу або на неї
+            engine->play2D("music//punct.wav", false, false, true); // Звук відбиття мяча
             if (circle->directBall == Ball::ballToUp) {
                 circle->directBall = Ball::ballToDown;
             }
@@ -240,6 +280,8 @@ public:
 
         // Колізія з лівою стіною (X=0 або X=1)
         if (nextX <= 0) { // М'яч намагається зайти за ліву межу
+            engine->play2D("music//punct.wav", false, false, true); // Звук відбиття мяча
+
             if (circle->directBall == Ball::ballToLeftUp) {
                 circle->directBall = Ball::ballToRightUp;
             }
@@ -251,6 +293,8 @@ public:
 
         // Колізія з правою стіною (X=WIDTH-1 або X=WIDTH-2)
         if (nextX >= WIDTH - 1) { // М'яч намагається зайти за праву межу
+            engine->play2D("music//punct.wav", false, false, true); // Звук відбиття мяча
+
             if (circle->directBall == Ball::ballToRightUp) {
                 circle->directBall = Ball::ballToLeftUp;
             }
@@ -269,6 +313,8 @@ public:
                 if (nextX == baseCord[i].first) {
                     // М'яч зіткнувся з платформою
                     hitPlatform = true;
+                    engine->play2D("music//punct.wav", false, false, true); // Звук відбиття мяча
+
                     // Змінюємо напрямок м'яча залежно від сектора платформи
                     if (i == 0) { // Лівий сегмент платформи
                         circle->directBall = Ball::ballToLeftUp;
@@ -298,6 +344,8 @@ public:
 
         // Колізія з нижньою межею (програш або втрата життя)
         if (nextY >= HEIGHT - 1) {
+            //engine->play2D("music//feil.wav"); // Звук феілу
+            // 
             // М'яч вилетів за межі поля знизу - програш
             circle->y = HEIGHT / 2; // Повертаємо на середину
             circle->x = WIDTH / 2;
@@ -313,7 +361,7 @@ public:
     // Функція для виведення карти в консоль
     void viewMap() {
         for (int i = 0; i < HEIGHT; i++) {
-            cout << '\t'; // Можливо, це не потрібно, якщо гра розрахована на весь екран
+            std::cout << '\t'; // Можливо, це не потрібно, якщо гра розрахована на весь екран
             for (int j = 0; j < this->WIDTH; j++) {
                 std::cout << map[i][j];
             }
@@ -326,8 +374,10 @@ public:
         //if (circle->y < HEIGHT / 2) {
             for (int i = 0; i < obstacles.size(); i++) {
                 for (int j = 0; j < obstacles[i].size(); j++) {
-                    if (obstacles[i][j].second.first == circle->y && obstacles[i][j].second.second == circle->x && obstacles[i][j].first != ' ') {
+                    if (obstacles[i][j].second.second == circle->y && obstacles[i][j].second.first == circle->x && obstacles[i][j].first != ' ') {
+                        engine->play2D("music//punct.wav", false, false, true); // Звук відбиття мяча
                         obstacles[i][j].first = ' ';
+                        this->obstaclesWastedInLastRound++;
                         switch (circle->directBall)
                         {
                         case Ball::ballToUp:
@@ -354,6 +404,110 @@ public:
                 }
             }
         //}
+    }
+
+    // Генерація перешкод на карті
+    void setObstacles() {
+
+        // Заповнення масиву з перешкодами
+        obstacles.clear();
+
+        if (this->lvl == 0) {
+            int numRows = 1; // Кількість перешкод у ряді
+            int obstaclesPerRow = 1; // Кількість рядів перешкод
+            char obstacleChar = '#';
+            int startY = 5; // Зміщення рядів вправо
+            int startX = 8; // Зміщення рядів вниз
+            int xSpacing = 10; // Відстань між рядами перешкод
+            int ySpacing = 3; // відстань між перешкодами в ряді
+
+            for (int i = 0; i < numRows; ++i) {
+                std::vector<std::pair<char, std::pair<int, int>>> currentRow;
+                for (int j = 0; j < obstaclesPerRow; ++j) {
+                    int obstacleX = startX + j * xSpacing;
+                    int obstacleY = startY + i * ySpacing;
+                    currentRow.push_back({ obstacleChar, {obstacleX, obstacleY} });
+                }
+                obstacles.push_back(currentRow); // Додаємо заповнений рядок
+            }
+        }
+        else if (this->lvl == 1) {
+            int numRows = 2; // Кількість перешкод у ряді
+            int obstaclesPerRow = 7; // Кількість рядів перешкод
+            char obstacleChar = '#';
+            int startY = 2; // Зміщення рядів вправо
+            int startX = 5; // Зміщення рядів вниз
+            int xSpacing = 3; // Відстань між рядами перешкод
+            int ySpacing = 1; // відстань між перешкодами в ряді
+
+            for (int i = 0; i < numRows; ++i) {
+                std::vector<std::pair<char, std::pair<int, int>>> currentRow;
+                for (int j = 0; j < obstaclesPerRow; ++j) {
+                    int obstacleX = startX + j * xSpacing;
+                    int obstacleY = startY + i * ySpacing;
+                    currentRow.push_back({ obstacleChar, {obstacleX, obstacleY} });
+                }
+                obstacles.push_back(currentRow); // Додаємо заповнений рядок
+            }
+        }
+        else if (this->lvl == 2) {
+            int numRows = 3; // Кількість перешкод у ряді
+            int obstaclesPerRow = 8; // Кількість рядів перешкод
+            char obstacleChar = '#';
+            int startY = 2; // Зміщення рядів вправо
+            int startX = 5; // Зміщення рядів вниз
+            int xSpacing = 3; // Відстань між рядами перешкод
+            int ySpacing = 1; // відстань між перешкодами в ряді
+
+            for (int i = 0; i < numRows; ++i) {
+                std::vector<std::pair<char, std::pair<int, int>>> currentRow;
+                for (int j = 0; j < obstaclesPerRow; ++j) {
+                    int obstacleX = startX + j * xSpacing;
+                    int obstacleY = startY + i * ySpacing;
+                    currentRow.push_back({ obstacleChar, {obstacleX, obstacleY} });
+                }
+                obstacles.push_back(currentRow); // Додаємо заповнений рядок
+            }
+        }
+
+        
+    }
+
+    // Перевірка життів
+    bool IsGameOver() {
+        if (circle->y == HEIGHT - 2) {
+            if (this->lifes > 0) {
+                this->lifes--;
+                cout << string(50, ' ');
+                system("cls");
+                return false;
+            }
+            else
+                return true;
+            
+        }
+        if (this->lifes == 0) {
+            return true;
+            //cout << string(50, ' ');
+            //system("cls");
+        }
+        return false;
+    } // Перевірка програшу
+    bool IsWin() { // Перевірка перемоги
+        bool win = true;
+        for (int i = 0; i < obstacles.size(); i++) {
+            for (int j = 0; j < obstacles[i].size(); j++) {
+                if (obstacles[i][j].first == '#') return !win;
+            }
+        }
+        if (this->lvl != 2) {
+            this->lvl++;
+            return win;
+        }
+        else if (this->lvl == 2) {
+            this->lvl = 0;
+            return win;
+        }
     }
 };
 
@@ -383,9 +537,13 @@ public:
     ReLoadImage& realImage;
 
 };
+//class ProxyReload;
 
 int main() {
     srand(static_cast<unsigned int>(time(0))); // Ініціалізація генератора випадкових чисел
+
+    ISoundEngine* engine = createIrrKlangDevice();
+    ISound* SoundMenu = engine->play2D("music//menu.wav", true, false, true);
 
     MoveArgs arg;
     arg.fieldX1 = 0;
@@ -396,49 +554,114 @@ int main() {
 
     To direction = To::Stop;
     // Початкова позиція м'яча: по центру над платформою, рухається вгору
-    Ball circle('O', arg.fieldX2 / 2, arg.fieldY2 - 4);
+    Ball circle('O', arg.fieldX2 / 2, arg.fieldY2 - 4, engine);
     circle.directBall = (rand() % 2 == 0) ? Ball::ballToLeftUp : Ball::ballToRightUp; // Випадковий старт вгору
 
-    ReLoadImage image(arg, &circle);
+    ReLoadImage image(arg, &circle, engine);
     ProxyReload proxy(image);
-
-    bool Game = true;
-    while (Game) {
-        // Очищаємо екран (переміщуємо курсор на початок)
-        image.goToxy(0, 0);
-
-        // Обробка вводу з клавіатури
-        if (_kbhit()) {
-            char ch = _getch();
-            switch (tolower(ch)) {
-            case 'a':
-                direction = To::Left;
-                break;
-            case 'd':
-                direction = To::Right;
-                break;
-            case 'q':
-                Game = false;
-                break;
-            default: // Якщо натиснута інша клавіша, зупиняємо рух платформи
-                direction = To::Stop;
-                break;
-            }
+    bool seance = true;
+    while (seance)
+    {
+        system("cls"); // Очистити консоль в кінці
+        std::string select;
+        std::cout << "\tWellcome Arcanoid Game!\n\tHere You can play and check your statistic of this seance";
+        std::cout << "\n\tEnter commands to continue.\n\t";
+        std::cout << "Enter \"Play\" to play;\n\tEnter \"Statistic\" to check statistic;\n\tEnter \"Quit\" to end seance;";
+        std::cout << "\n\tCommand: ";
+        std::cin >> select;
+        if (select == "Quit") seance = false;
+        if (select == "Statistic") {
+            system("cls");
+            cout << "\n\t=== YOUR STATISTIC ===";
+            cout << "\n\n\tAll time in game: " << image.allTimeInGame;
+            cout << "\n\tObstacles wasted in last round: " << image.obstaclesWastedInLastRound;
+            cout << "\n\tTime record in playing game: " << image.timeRecord << "\n";
+            system("pause");
+            //cout << "\n\t" << image.
         }
+        if (select == "Play") {
+            
+            system("cls"); // Очистити консоль в кінці
+            bool Game = true;
+            time_t startTime = time(nullptr); // Початок відліку часу
+            time_t currentTime; // Буде визначатися кількість часу що пройшла
+            int timeInGame = 0;
+            image.lifes = 3;
+            image.lvl = 0;
+            image.setObstacles();
+            image.obstaclesWastedInLastRound = 0; //Обнулення розбитих перешкод
 
-        proxy.baseTo(direction); // Рух платформи
-        image.ballMoveTo();      // Рух м'яча
-        image.checkObstacles();        // Перевірка зіткнень
+            image.obstaclesWastedInLastRound = 0;
+            while (Game) {
+                // Очищаємо екран (переміщуємо курсор на початок)
+                image.goToxy(0, 0);
 
-        // Оновлюємо карту перед кожним виведенням!
-        image.setMap();
-        image.viewMap();
+                // Обробка вводу з клавіатури
+                if (_kbhit()) {
+                    char ch = _getch();
+                    switch (tolower(ch)) {
+                    case 'a':
+                        direction = To::Left;
+                        break;
+                    case 'd':
+                        direction = To::Right;
+                        break;
+                    case 'q':
+                        Game = false;
+                        break;
+                    case 't': 
+                        image.obstacles.clear();
+                        break;
+                    default: // Якщо натиснута інша клавіша, зупиняємо рух платформи
+                        direction = To::Stop;
+                        break;
+                    }
+                }
 
-        Sleep(80); // Затримка 80 мс для кращої візуалізації
+                proxy.baseTo(direction); // Рух платформи
+                image.ballMoveTo();      // Рух м'яча
+                image.checkObstacles();        // Перевірка зіткнень
+                if (image.IsGameOver()) Game = false; // Перевірка кількості життів
+                if (image.IsWin()) { // Перевірка на виграш
+                    image.lifes = 3;
+                    image.setObstacles();
+                    circle.x = arg.fieldX2 / 2; // перенесення мяча всередину вгору
+                    circle.y = arg.fieldY1 + 2;
+                }
+
+                // Час внизу
+                currentTime = time(nullptr); // + 1 sec
+                image.goToxy(0, arg.fieldY2 + 5);
+                cout << "\tTime: " << static_cast<int>(currentTime - startTime) << " sec";
+                cout << "\tLifes: " << image.lifes;
+                timeInGame = static_cast<int>(currentTime - startTime);
+
+                image.goToxy(0, 0);
+
+                // Оновлюємо карту перед кожним виведенням!
+                image.setMap();
+                image.viewMap();
+
+                Sleep(80); // Затримка 80 мс для кращої візуалізації
+            }
+            if (timeInGame > image.timeRecord) image.timeRecord = timeInGame;
+            image.allTimeInGame += timeInGame;
+        }
     }
 
 
     system("cls"); // Очистити консоль в кінці
-    cout << "Гра завершена!" << endl;
+
+    //Звільнення памяті від музики
+    engine->drop();
+    
+    //SoundMenu->drop();
+    /*
+    SoundFeil->drop();
+    SoundEnter->drop();
+    SoundCountingScore->drop();
+    SoundDriving->drop();
+    SoundPunctUp->drop();
+    */
     return 0;
 }
