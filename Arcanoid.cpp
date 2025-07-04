@@ -9,38 +9,21 @@
 #include <ctime>   // Для time()
 
 #include <irrKlang.h>
-#pragma comment(lib, "irrKlang.lib") // Äëÿ Visual Studio
+#pragma comment(lib, "irrKlang.lib") 
 using namespace irrklang;
 
 // Використовувати using namespace std; у заголовних файлах або великих проектах не рекомендується,
 // але для невеликих прикладів це прийнятно.
 using namespace std;
 
-// Змінні для відігравання звуків у грі
-    
 
-
-    
-/*
-ISound* SoundFeil = engine->play2D("music//feil.wav", false, true, true);
-ISound* SoundEnter = engine->play2D("Enter.wav", false, true, true);
-ISound* SoundCountingScore = engine->play2D("Enter.wav", false, true, true);
-ISound* SoundDriving = engine->play2D("Driving.wav", false, true, true);
-ISound* engine->play2D("music//punct.wav", false, false, true);// зациклений, але ПАУЗА (true, true)
-*/
-
-// Структура для передачі аргументів, її можна буде розширити
+// Структура для передачі аргументів
 struct MoveArgs {
     int fieldX1;
     int fieldX2;
     int fieldY1;
     int fieldY2;
 
-    // Ці поля поки не використовуються, але можуть знадобитися
-    // vector<int> platformX;
-    // vector<int> platformY;
-    // int bollX;
-    // int bollY;
 };
 
 class Ball {
@@ -151,19 +134,6 @@ public:
         baseCord[2].first++;
 
     }
-
-    void baseToUp() {
-        baseCord[0].second--;
-        baseCord[1].second--;
-        baseCord[2].second--;
-    }
-
-    void baseToDown() {
-        baseCord[0].second++;
-        baseCord[1].second++;
-        baseCord[2].second++;
-    }
-
 
     // Змінні класу
     int lifes;
@@ -469,8 +439,6 @@ public:
                 obstacles.push_back(currentRow); // Додаємо заповнений рядок
             }
         }
-
-        
     }
 
     // Перевірка життів
@@ -514,9 +482,7 @@ public:
 enum To {
     Left = 0,
     Right,
-    Stop,
-    Up,
-    Down,
+    Stop
 };
 
 class ProxyReload {
@@ -529,10 +495,6 @@ public:
             if (realImage.baseCord[0].first > 1) realImage.baseToLeft();
         if (direct == To::Right)
             if (realImage.baseCord[2].first < realImage.WIDTH - 2) realImage.baseToRight();
-        if (direct == To::Up)
-            if (realImage.baseCord[1].second > 1) realImage.baseToUp();
-        if (direct == To::Down)
-            if (realImage.baseCord[2].second < realImage.HEIGHT - 2) realImage.baseToDown();
     }
     ReLoadImage& realImage;
 
@@ -567,6 +529,7 @@ int main() {
         std::cout << "\tWellcome Arcanoid Game!\n\tHere You can play and check your statistic of this seance";
         std::cout << "\n\tEnter commands to continue.\n\t";
         std::cout << "Enter \"Play\" to play;\n\tEnter \"Statistic\" to check statistic;\n\tEnter \"Quit\" to end seance;";
+        std::cout << "\n\tEnter \"Control\" to check buttons for control";
         std::cout << "\n\tCommand: ";
         std::cin >> select;
         if (select == "Quit") seance = false;
@@ -577,7 +540,14 @@ int main() {
             cout << "\n\tObstacles wasted in last round: " << image.obstaclesWastedInLastRound;
             cout << "\n\tTime record in playing game: " << image.timeRecord << "\n";
             system("pause");
-            //cout << "\n\t" << image.
+        }
+        if (select == "Control") {
+            system("cls");
+            cout << "\n\t=== Buttons ===";
+            cout << "\n\n\tMove Left: \"A\"";
+            cout << "\n\tMove Right: \"D\"";
+            cout << "\n\tStop Platform: \"SPACE\"\n";
+            system("pause");
         }
         if (select == "Play") {
             
@@ -612,8 +582,10 @@ int main() {
                     case 't': 
                         image.obstacles.clear();
                         break;
-                    default: // Якщо натиснута інша клавіша, зупиняємо рух платформи
+                    case ' ':
                         direction = To::Stop;
+                        break;
+                    default: 
                         break;
                     }
                 }
@@ -648,20 +620,9 @@ int main() {
             image.allTimeInGame += timeInGame;
         }
     }
-
-
     system("cls"); // Очистити консоль в кінці
 
     //Звільнення памяті від музики
     engine->drop();
-    
-    //SoundMenu->drop();
-    /*
-    SoundFeil->drop();
-    SoundEnter->drop();
-    SoundCountingScore->drop();
-    SoundDriving->drop();
-    SoundPunctUp->drop();
-    */
     return 0;
 }
